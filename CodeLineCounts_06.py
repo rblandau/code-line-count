@@ -30,9 +30,9 @@ def fnProcessLine(mysLine,mysType):
     # As ugly and complex as all this looks, it works only 
     # for pretty vanilla cases.  It is still too simple
     # to get a correct answer in all cases.  
-# C   C P P   H   H P P   J A V A 
-    if ( re.match("^(c|cpp|h|hpp|java)$",mysType,re.I) ):
-        TRC.trace(5,"proc match line as C or Java")
+# C   C P P   H   H P P   J A V A   S C A L A 
+    if ( re.match("^(c|cpp|h|hpp|java|scala)$",mysType,re.I) ):
+        TRC.trace(5,"proc match line as C, Java, or Scala")
         g.bCommentOnly = re.match("^\s*(\/\*.*\*\/|\/\/.*)\s*$",mysLine)
         g.bCommentBegin = re.match("^.*(\/\*|\/\/).*$",mysLine)
         g.bCommentEnd = re.match("^.*(\*\/|\/\/).*$",mysLine)
@@ -56,7 +56,7 @@ def fnProcessLine(mysLine,mysType):
         if ( g.bCommentBegin ):
             g.bCodeCommentBegin = re.match("^\s*\S+.*(#).*$",mysLine)
 # P Y T H O N 
-    elif ( re.match("^(py)$",mysType,re.I) ):
+    elif ( re.match("^(py|pm)$",mysType,re.I) ):
         TRC.trace(5,"proc match line as Python")
         g.bShort = 0
         g.bCommentOnly = re.match("^\s*#.*\s*$",mysLine)
