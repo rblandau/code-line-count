@@ -1,1 +1,1 @@
-py pl sh ini txt
+py pl sh ini txt r csv ins ins3 tpl j2 html 
