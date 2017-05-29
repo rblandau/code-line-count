@@ -1,0 +1,7 @@
+<? xml something, I forget what goes here >
+<!-- testcount.xml -->
+<sometag>some value</sometag>
+<!-- this is a block comment
+    that spans a couple lines
+-->
+<anothertag>another value</anothertag>

@@ -10,7 +10,7 @@ if [ -z "$1" ]
 then 
     echo "Usage: $0 source-tree-rootdir" 
     echo "Output, tab-sep, to stdout; redirect or tee to save to file."
-    echo "e.g., $0 oma140 | tee oma140_files_20030321_sizes.log"
+    echo "e.g., $0 working/shelf | tee WeeklyCodeLineCounts_20170528.txt"
     echo "(All sh, pl, py, txt files to run this counter "
     echo " must be in the same directory as this shell script.)"
     exit 1 
@@ -25,11 +25,11 @@ if [ -r "$sSupportedLanguageFile" ]
 then
     sSupportedLanguages=`cat $sSupportedLanguageFile`
 else
-    sSupportedLanguages="c cpp h hpp java xml xsl html xhtml bat cmd sh mak pl awk sed ini py txt js gs"
+    sSupportedLanguages="py pm js gs r c cpp h hpp java xml xsl html xhtml tpl j2 bat cmd sh csv mak pl awk sed ini txt"
 fi
 
 # Find the highest numbered version of the counter program.  
-latestprogram=$(ls CodeLineCounts*.py | sort | tail -1 | sed 's/\\r//')
+latestprogram=$(ls NewCodeLineCounts*.py | sort | tail -1 | sed 's/\\r//')
 
 # Start with header line for Excel or R to recognize.
 # Tab-separated.
@@ -49,7 +49,6 @@ done
 
 exit 0
 
-#END
 # Edit history:
 # 20030324  RBL Original version.  
 # 20030523  RBL Add header line in output file.
@@ -63,4 +62,7 @@ exit 0
 #               Always use latest version of counting program.  
 # 20150102  RBL Improve usage and comments.  
 #               Eliminate traces of output file arg.  
-#
+# 20170522  RBL Add types tpl and j2 for Jinja2 templates.
+# 
+# 
+#END

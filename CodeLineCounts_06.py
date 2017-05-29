@@ -15,6 +15,8 @@
 from NewTraceFac import TRC,trace,tracef
 import re
 from sys import argv
+import os
+
 
 @tracef("LINE")
 def fnProcessLine(mysLine,mysType):
@@ -296,12 +298,15 @@ class G(object):
     bCommentBlockTextBoth = 0   # Introducer with text on both sides.
     bCommentBlockSingle = 0     # Two introducers, probably begin-end, on line.
 
+
+
 @trace
 def fnProcessFile(mysFilename,mysFiletype):
     with open(mysFilename, "r") as fhInput:
         lLines = fhInput.readlines()
         for sLine in lLines:
             fnProcessLine(sLine,mysFiletype)
+
 
 # Reduce match objects or None to one and zero, for brevity.  
 def tf(something):
@@ -319,11 +324,17 @@ if __name__ == "__main__":
         exit(0)
 
     sFilename = argv[1]
+    if not os.path.isfile(sFilename):
+        raise IOError("Input file not found: \"{}\"").format(sFilename)
+    (_, sFileext) = os.path.splitext(sFilename)
+    """
     mFileext = re.match("^.*\.([^\.]+)$",sFilename,re.I)
     sFileext = mFileext.group(1)
-    TRC.tracef(3,"MAIN","proc fname|%s| match|%s| ext|%s|" % (sFilename,mFileext,sFileext))
+    """
+    TRC.tracef(3,"MAIN","proc fname|%s| ext|%s|" % (sFilename,sFileext))
 
-    g = G()                             # Instantiate all the global data.
+    # Instantiate all the global data: flags and counters.
+    g = G()
     
     fnProcessFile(sFilename,sFileext)   # Do all this crap to the file.
     TRC.trace(3,"proc afterfile lines|%s| code|%s| blank|%s| short|%s| comment|%s|" % (g.getAll()))
