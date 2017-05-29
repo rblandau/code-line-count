@@ -165,15 +165,6 @@ class CPython(CAnalyzeLanguageLines):
             or self.bIsCommentBlockEndQuote(mysLine))
         
 
-"""
-#===========================================================
-# I N I 
-class CIni(CAnalyzeLanguageLines):
-    raise NotImplementedError("INI")
-    pass
-"""
-
-
 #===========================================================
 # P E R L   A W K   S H   R   M A K   S E D   P R O P E R T I E S 
 class CPerlAwkShR(CAnalyzeLanguageLines):
@@ -258,6 +249,38 @@ class CBatCmd(CAnalyzeLanguageLines):
     @ntrace
     def bIsCodePlusComment(self, mysLine):
         return 0
+
+
+#===========================================================
+# I N I 
+class CIni(CAnalyzeLanguageLines):
+    '''
+    This permits lots and lots of different styles of comments.  
+     Windows (and other) INI files permit # and sometimes ! for comments; 
+     and PHP takes semicolon; and Visual Studio and other Windows programs 
+     take semicolon and sometimes //; and Latex takes %.  
+     And Visual Studio and some other Windows utilities permit 
+     C++-style line and block comments, too.  
+     Ah, consistency.  What a swamp.
+    None of these things should appear at the beginning of a line anyway, 
+     so if it even vaguely resembles a comment, it probably is; otherwise code.
+    '''
+
+    @ntrace
+    def bIsCommentOnly(self, mysLine):
+        return(tf(re.match("^\s*(#|!|;|%|\/\/).*$",mysLine)))
+
+    @ntrace
+    def bIsCodePlusComment(self, mysLine):
+        return 0
+
+    @ntrace
+    def bIsCommentBlockBegin(self, mysLine):
+        return(tf(re.match("^\s*\/\*.*$",mysLine)))
+
+    @ntrace
+    def bIsCommentBlockEnd(self, mysLine):
+        return(tf(re.match("^.*\*\/\s*$",mysLine)))
 
 
 #===========================================================
