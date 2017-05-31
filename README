@@ -1,4 +1,4 @@
-#Code Line Counter 
+# Code Line Counter 
 ### A small Python program to count lines in program and documentation files
 
 ... and distinguish code lines from comment lines, blank lines, and short lines
@@ -7,7 +7,7 @@ the size of software projects.  In particular, the density of comments
 in program source files may relate to the maintainability of the code.
 
 
-##The Program
+## The Program
 
 To invoke:
 
@@ -47,7 +47,7 @@ tab-separated)
     ./CodeSupportedLanguages.txt	text	1	1	0	0	0
 ```
 
-##The Script
+## The Script
 
 There is a shell script to run line counting over entire directory trees.
 
