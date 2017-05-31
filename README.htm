@@ -1,0 +1,33 @@
+<h1 id="code-line-counter">Code Line Counter</h1>
+<h3 id="a-small-python-program-to-count-lines-in-program-and-documentation-files">A small Python program to count lines in program and documentation files</h3>
+<p>... and distinguish code lines from comment lines, blank lines, and short lines in a large variety of computer languages. Perhaps useful in looking at the size of software projects. In particular, the density of comments in program source files may relate to the maintainability of the code.</p>
+<h2 id="the-program">The Program</h2>
+<p>To invoke:</p>
+<pre><code>    python NewCodeLineCount.py &lt;filespec&gt;</code></pre>
+<p>Returns a single line of stats to stdout containing the following fields, tab-separated. The output may be redirected ot teed to an output file.</p>
+<ul>
+<li><p>filespec: the spec given to the program.</p></li>
+<li><p>file processed as: the language group of the file, which determines how the program searches for comment lines. The program determines language group by looking at the file extension. E.g., files of types <code>.c, .cpp,  .h, .hpp, .js, .java, .scala</code> will all be processed as type &quot;<code>cpp/js/java</code>&quot;. Files of unknown type will be processed as &quot;<code>text</code>&quot;.</p></li>
+<li><p>total lines: count of all lines in the file.</p></li>
+<li><p>code lines: count of code lines in the file. Code lines are calculated simply as any line that is not identified as a comment, blank, or short.</p></li>
+<li><p>comment lines: count of lines classified as comments, either single-line comments or block comments, relative to the programming language.</p></li>
+<li><p>blank lines: white space or empty.</p></li>
+<li><p>short lines: for languages that might have them, e.g., isolated braces in C, C++, Java, PHP, et al.</p></li>
+</ul>
+<p>Example output: (one line of output per program invocation; fields are tab-separated)</p>
+<pre><code>    ./NewCodeLineCounts.py  python  475 285 102 88  0
+    ./WeeklyCodeLineCounts_dir-08.sh    sh/perl/r   85  31  46  8   0
+    ./CodeSupportedLanguages.txt    text    1   1   0   0   0</code></pre>
+<h2 id="the-script">The Script</h2>
+<p>There is a shell script to run line counting over entire directory trees.</p>
+<p>To invoke:</p>
+<pre><code>    sh WeeklyCodeLineCounts_dir.sh &lt;directory&gt;</code></pre>
+<p>The script processes all files of certain types in the directory tree. The file types may be specified in a file, <code>CodeSupportedLanguages.txt</code>, containing a single line of file types (extenstions), separated by blanks.<br />
+Example:</p>
+<pre><code>    py pl sh ini txt r csv ins ins3 tpl j2 html c cpp h hpp java</code></pre>
+<p>The files will be processed in that order, one type at a time, down the entire tree. If no <code>CodeSupportedLanguages.txt</code> file is present in the current directory, then a default list of types will be used that contains the types of most common programming, resource, and documentation languages.</p>
+<p>The script prints one header line to identify the several numeric fields, for the benefit of R, Excel, and such. The header is also tab-separated. Example header:</p>
+<pre><code>    file    type    total   code    comment blank   short</code></pre>
+<p>All output goes to stdout. The user may redirect or tee the output to be recorded in a file.</p>
+<p>Happy counting.</p>
+<p>PS: The file <code>NewTraceFac.py</code> used by this program is a very old, traditional tracing facility. It is turned off by default. It can be turned on with environment variables; see the documentation in the source file, should you wish to use it.</p>

@@ -325,9 +325,7 @@ if __name__ == "__main__":
 
     sFilename = argv[1]
     if not os.path.isfile(sFilename):
-        print("Input file not found: \"{}\"".format(sFilename))
-        exit(1)
-
+        raise IOError("Input file not found: \"{}\"").format(sFilename)
     (_, sFileext) = os.path.splitext(sFilename)
     """
     mFileext = re.match("^.*\.([^\.]+)$",sFilename,re.I)

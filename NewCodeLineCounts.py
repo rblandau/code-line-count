@@ -387,7 +387,7 @@ def main(mysFilename,mysType):
     # Mucho stupid factory to get the right class to analyze this file.
     if (re.match("^(c|cpp|h|hpp|js|java|scala)$",mysType,re.I) ):
         g.cLang = CCCppJsJava()
-        g.sProcessedAs = 'c/cpp/php'
+        g.sProcessedAs = 'cpp/js/java'
     elif (re.match("^(pl|awk|r|sh|ksh|csv|mak|sed|properties)$",mysType,re.I)):
         g.cLang = CPerlAwkShR()
         g.sProcessedAs = 'sh/perl/r'
