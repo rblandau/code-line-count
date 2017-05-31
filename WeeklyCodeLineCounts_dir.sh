@@ -33,7 +33,7 @@ if [ -r "$sSupportedLanguageFile" ]
 then
     sSupportedLanguages=`cat $sSupportedLanguageFile`
 else
-    sSupportedLanguages="py pm js gs r c cpp h hpp java xml xsl html xhtml tpl j2 bat cmd sh csv mak pl awk sed ini txt"
+    sSupportedLanguages="py pm js gs r c cpp h hpp java xml xsl html xhtml tpl j2 bat cmd sh csv mak pl awk sed ini txt md"
 fi
 
 # Use latest version of default program, unless the user has specified
