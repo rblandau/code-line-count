@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # NewCodeLineCounts.py
-# Adapted from old CodeLineCounts.pl used for years at Dell around 20030321,
+# Adapted from old CodeLineCounts.pl used for years around 20030321,
 #  which in turn came from old old really old Perl version years before that. 
 
 ''' 
@@ -117,7 +117,11 @@ class CPython(CAnalyzeLanguageLines):
 
     @ntrace
     def bIsCodePlusComment(self, mysLine):
-        return(tf(re.match("^\s*\S+.*#.*$",mysLine)))
+        return(
+            tf(re.match("^\s*\S+.*#.*$",mysLine))
+            or (tf(re.match("^\s*\S+.*\'\'\'.*\'\'\'\s*$", mysLine)))
+            or (tf(re.match("^\s*\S+.*\"\"\".*\"\"\"\s*$", mysLine)))
+            )
 
     '''
     Python has these abominable businesses of 
@@ -212,7 +216,7 @@ class CCCppJsJava(CAnalyzeLanguageLines):
 
 
 #===========================================================
-# X M L   H T M L   e t   a l .
+# X M L   H T M L   X S L   e t  a l .
 class CXmlHtml(CAnalyzeLanguageLines):
     ''' 
     XML-like languages that use block comments with <!-- ... -->
@@ -239,7 +243,7 @@ class CXmlHtml(CAnalyzeLanguageLines):
 # B A T   C M D 
 class CBatCmd(CAnalyzeLanguageLines):
     '''
-    Window/DOS/NT .bat and .cmd files
+    Window/DOS/NT .bat and .cmd files that use REM as comment introducer.
     '''
 
     @ntrace
@@ -248,7 +252,7 @@ class CBatCmd(CAnalyzeLanguageLines):
 
     @ntrace
     def bIsCodePlusComment(self, mysLine):
-        return 0
+        return 0                # Not possible in BAT files.
 
 
 #===========================================================
@@ -258,11 +262,11 @@ class CIni(CAnalyzeLanguageLines):
     This permits lots and lots of different styles of comments.  
      Windows (and other) INI files permit # and sometimes ! for comments; 
      and PHP takes semicolon; and Visual Studio and other Windows programs 
-     take semicolon and sometimes //; and Latex takes %.  
+     take semicolon and sometimes // and Latex takes %.  
      And Visual Studio and some other Windows utilities permit 
      C++-style line and block comments, too.  
      Ah, consistency.  What a swamp.
-    None of these things should appear at the beginning of a line anyway, 
+    Most of these things should appear at the beginning of a line anyway, 
      so if it even vaguely resembles a comment, it probably is; otherwise code.
     '''
 
@@ -293,11 +297,11 @@ class CText(CAnalyzeLanguageLines):
     
     @ntrace
     def bIsCommentOnly(self,mysLine):
-        return 0
+        return 0                # No comments in text files.
 
     @ntrace
     def bIsCodePlusComment(self,mysLine):
-        return 0
+        return 0                # No comments in text files.
 
 
 #===========================================================
@@ -326,11 +330,14 @@ def fnProcessFile(mysFilename,mysFiletype):
             if (g.bCommentOnly and not g.bInCommentRegion): 
                 g.nComment += 1
             # Inside a block comment region.
-            if g.bInCommentRegion: 
+            if (g.bInCommentRegion
+                and not g.bCodePlusComment): 
                 g.nComment += 1
             # The end of a block comment region, if not on the 
             #  same line as the beginning of the block.
-            if g.bCommentBlockEnd and not g.bCommentBlockBegin: 
+            if (g.bCommentBlockEnd 
+                and not g.bCommentBlockBegin
+                and not g.bCodePlusComment): 
                 g.nComment += 1
             # Count short lines separately from longer code lines. 
             if g.bShort:
@@ -362,10 +369,11 @@ def fnProcessLine(mysLine,mysFiletype):
     g.bCommentBlockEnd = g.cLang.bIsCommentBlockEnd(mysLine)
     if g.bCommentBlockEnd:
         g.bInCommentRegion = 0
-    if g.bCommentBlockBegin and g.bCommentBlockEnd:
+    if g.bCommentBlockBegin and g.bCommentBlockEnd and not g.bCodePlusComment:
         g.bCommentOnly = 1
     g.bShort = g.cLang.bIsShort(mysLine)
-
+    NTRC.ntrace(3,"blockcomm inregion|%s| commentonly|%s| codeplus|%s|" 
+        % (g.bInCommentRegion, g.bCommentOnly, g.bCodePlusComment))
 
 # t f 
 # Reduce match objects or None to one and zero, for brevity.  
@@ -464,7 +472,7 @@ if __name__ == "__main__":
 # 20140324  RBL Moldy, old Python version for my use.  
 # 20170522  RBL New Python version, derived from old Python version,
 #                which was derived from really ancient Perl version.  
-#                If you think this is bad, you should have seen 
+#               If you think this is bad, you should have seen 
 #                the old Python version, that worked but was ugly,
 #                an if-elif statement that went on for three pages.
 #                And you wouldn't believe the spaghetti swamp 
