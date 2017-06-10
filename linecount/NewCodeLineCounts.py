@@ -38,7 +38,11 @@ class CAnalyzeLanguageLines(object):
     Subclass this and implement whatever methods are necessary for that
      particular language.  E.g., if a language does not have block
      comments, then don't bother to implement anything to look for them.
-     But every subclass must implement CommentOnly and CodePlusComment.
+     Every prototype function returns False (with pass) if not implemented.
+     NOTE: Every subclass must implement HashCommentOnly and CodePlusComment.
+     
+    The functions must be stateless, because they may be optimized
+     away by boolean expressions (and, or).
     '''
     __metaclass__ = ABCMeta
 
@@ -51,7 +55,7 @@ class CAnalyzeLanguageLines(object):
         return(tf(re.match("^\s*\r?$", mysLine)))
 
     @abstractmethod
-    def bIsCommentOnly(self, mysLine):
+    def bIsHashCommentOnly(self, mysLine):
         ''' Does line contain only a comment and no code? '''
         pass
 
@@ -68,6 +72,10 @@ class CAnalyzeLanguageLines(object):
         ''' Does line terminate a comment block? '''
         pass
 
+    def bIsCommentBlockBeginOrEnd(self, mysLine):
+        ''' Ambiguous introducer/terminator for comment block? '''
+        pass
+
     def bIsShort(self,mysLine):
         ''' Is line very short, e.g., a single brace? '''
         pass
@@ -82,8 +90,14 @@ class CG(object):
 
     bShort = 0
     bBlank = 0
-    bCommentOnly = 0        # Comment on this line.  
-    bInCommentRegion = 0    # In block comment
+    bHashCommentOnly = 0    # Comment on this line.  
+    bCommentBlockBegin = 0  # Beginning of a block comment.
+    bCommentBlockEnd = 0    # End of block comment.
+    bCommentBlockAmbiguous = 0  # Python only: maybe begin or end.
+    bForceComment = 0       # Force this line to be considered a comment.
+    
+    bInCommentRegion = 0        # Inside a block comment.
+    bInCommentRegionNext = 0    # Maybe transition to anew state.  
 
     # Counters for types of lines.
     nLines = 0
@@ -92,8 +106,14 @@ class CG(object):
     nComment = 0
     nCode = 0
 
+    @ntrace
     def fnvResetFlags(self):
-        bBlank = bShort = bCommentOnly = 0
+        bBlank = bShort = 0
+        bHashCommentOnly = 0
+        bCommentBlockBegin = 0
+        bCommentBlockEnd = 0
+        bCommentBlockAmbiguous = 0
+        bForceComment = 0
 
     # Return counters, some or all.  
     def getAll(self):
@@ -112,19 +132,15 @@ class CG(object):
 class CPython(CAnalyzeLanguageLines):
 
     @ntrace
-    def bIsCommentOnly(self, mysLine):
-        return(tf(re.match("^\s*#.*$",mysLine)))
+    def bIsHashCommentOnly(self, mysLine):
+        return(tf(re.match("^\s*#.*$", mysLine)))
 
     @ntrace
     def bIsCodePlusComment(self, mysLine):
-        return(
-            tf(re.match("^\s*\S+.*#.*$",mysLine))
-            or (tf(re.match("^\s*\S+.*\'\'\'.*\'\'\'\s*$", mysLine)))
-            or (tf(re.match("^\s*\S+.*\"\"\".*\"\"\"\s*$", mysLine)))
-            )
+        return(tf(re.match("^\s*\S+.*#.*$", mysLine)))
 
     '''
-    Python has these abominable businesses of 
+    Python has this abominable business of 
     (1) beginning and ending block comments with the same string, 
     (2) having *two* versions of the block comment strings, and
     (3) permitting the two types of block comments to *nest*, yikes.
@@ -134,28 +150,73 @@ class CPython(CAnalyzeLanguageLines):
      currently mis-handled here.  Tough.  Rare case.
      If you want to fix it so that comment blocks can nest, 
      knock yourself out.  
-    The code here fudges the possibility of code plus a block comment 
-     on the same line.  If there is any text outside the 
+    The code here fudges the possibility of code plus what looks like 
+     a block comment on the same line.  
+     If there is any text outside the 
      comment delimiter, then the line is code; otherwise it is 
      inside a comment.  Maybe you could convince me to fix this.  
+
+    And then there are the abominable -- but, sadly, useful -- 
+        if False:<opening triplequote>
+        code to be commented out
+        <closing triplequote>
+     which should count as code, comment, comment;
+                and
+        <opening triplequote>
+        code to be commented out
+        <closing triplequote> and False
+     which should counta as comment, comment, code.
+    What a crock.
+
+    Here's what it *should* conclude:
+  
+    whitespace only                         blank if not in comment region
+    non-whitespace only                     code
+    whitespace hash anything                single-line comment
+    non-whitespace hash anything            code
+    whitespace triplequote whitespace       begin or end (xor) comment region
+    whitespace triplequote non-whitespace   comment & begin comment region
+    non-whitespace triplequote whitespace   comment & end comment region if in,
+                                            or code & begin comment region
+    anything-includingblank-whileincommentregion
+                                            comment
+    whitespace triplequote anything triplequote whitespace
+                                            single-line comment
+    
+    Now let's see if I can make this stupid code do that.  
     '''
+    @ntrace
+    def bIsApost(self, mysLine):
+        ''' Just three apostrophes? '''
+        return(tf(re.match("^(\s*)\'\'\'(\s*)$", mysLine)))
+        
     @ntrace
     def bIsCommentBlockBeginApost(self, mysLine):
         ''' Does comment block start with three apostrophes? '''
-        return(tf(re.match("^\s*\'\'\'.*$",mysLine)))
+        return(tf(re.match("^\s*\'\'\'(\s*\S+.*)$", mysLine)))
         
     @ntrace
     def bIsCommentBlockEndApost(self, mysLine):
-        return(tf(re.match("^.*\'\'\'\s*$",mysLine)))
+        return(tf(re.match("^(\s*\S+.*)\'\'\'\s*$", mysLine)))
 
     @ntrace
-    def bIsCommentBlockBeginQuote(self ,mysLine):
-        ''' Does comment block begin wtih three double quotes? '''
-        return(tf(re.match("^\s*\"\"\".*$",mysLine)))
+    def bIsQuote(self, mysLine):
+        ''' Just three apostrophes? '''
+        return(tf(re.match("^(\s*)\"\"\"(\s*)$", mysLine)))
+        
+    @ntrace
+    def bIsCommentBlockBeginQuote(self, mysLine):
+        ''' Does comment block begin with three double quotes? '''
+        return(tf(re.match("^\s*\"\"\"(\s*\S+.*)$", mysLine)))
 
     @ntrace
     def bIsCommentBlockEndQuote(self, mysLine):
-        return(tf(re.match("^.*\"\"\"\s*$",mysLine)))
+        return(tf(re.match("^(\s*\S+.*)\"\"\"\s*$", mysLine)))
+
+    @ntrace
+    def bIsCommentBlockBeginOrEnd(self, mysLine):
+        return(self.bIsApost(mysLine)
+            or self.bIsQuote(mysLine))
 
     @ntrace
     def bIsCommentBlockBegin(self, mysLine):
@@ -167,7 +228,7 @@ class CPython(CAnalyzeLanguageLines):
     def bIsCommentBlockEnd(self, mysLine):
         return(self.bIsCommentBlockEndApost(mysLine) 
             or self.bIsCommentBlockEndQuote(mysLine))
-        
+
 
 #===========================================================
 # P E R L   A W K   S H   R   M A K   S E D   P R O P E R T I E S 
@@ -177,7 +238,7 @@ class CPerlAwkShR(CAnalyzeLanguageLines):
     '''
 
     @ntrace
-    def bIsCommentOnly(self, mysLine):
+    def bIsHashCommentOnly(self, mysLine):
         return(tf(re.match("^\s*#.*$",mysLine)))
 
     @ntrace
@@ -195,7 +256,7 @@ class CCCppJsJava(CAnalyzeLanguageLines):
     '''
 
     @ntrace
-    def bIsCommentOnly(self, mysLine):
+    def bIsHashCommentOnly(self, mysLine):
         return(tf(re.match("^\s*\/\/.*$",mysLine)))
 
     @ntrace
@@ -223,7 +284,7 @@ class CXmlHtml(CAnalyzeLanguageLines):
     '''
 
     @ntrace
-    def bIsCommentOnly(self, mysLine):
+    def bIsHashCommentOnly(self, mysLine):
         return 0
 
     @ntrace
@@ -247,7 +308,7 @@ class CBatCmd(CAnalyzeLanguageLines):
     '''
 
     @ntrace
-    def bIsCommentOnly(self, mysLine):
+    def bIsHashCommentOnly(self, mysLine):
         return(tf(re.match("^\s*(REM|rem).*$",mysLine)))
 
     @ntrace
@@ -271,7 +332,7 @@ class CIni(CAnalyzeLanguageLines):
     '''
 
     @ntrace
-    def bIsCommentOnly(self, mysLine):
+    def bIsHashCommentOnly(self, mysLine):
         return(tf(re.match("^\s*(#|!|;|%|\/\/).*$",mysLine)))
 
     @ntrace
@@ -296,7 +357,7 @@ class CText(CAnalyzeLanguageLines):
     '''
     
     @ntrace
-    def bIsCommentOnly(self,mysLine):
+    def bIsHashCommentOnly(self,mysLine):
         return 0                # No comments in text files.
 
     @ntrace
@@ -323,30 +384,58 @@ def fnProcessFile(mysFilename,mysFiletype):
 
             # Determine type of line and increment count.
             g.nLines += 1
-            # A blank is a blank is a blank.  White space with no content.
-            if g.bBlank: 
+            
+            # A blank is a blank is a blank: white space with no content.
+            #  Unless it's inside a block comment.
+            if g.bBlank and not g.bInCommentRegion: 
                 g.nBlank += 1
-            # Block comment that begins and ends on the same line.
-            if (g.bCommentOnly and not g.bInCommentRegion): 
+
+            '''
+            What we want here is
+
+            block comments have to work for these cases:
+
+                in C and friends:
+            code? /*
+            code? /* stuff
+            stuff */ code?
+            */ code?
+            code? /* stuff */ code?
+                
+                and in Python:
+            code? """
+            code? """ stuff
+            stuff """ code? 
+            """ code? 
+            code? """ stuff """
+            """ stuff """ code? 
+
+            This is not simple.
+
+            '''
+
+            # Hash comment or 
+            #  block comment that begins and ends on the same line.
+            if (g.bHashCommentOnly and not g.bInCommentRegion): 
                 g.nComment += 1
+            
             # Inside a block comment region.
-            if (g.bInCommentRegion
-                and not g.bCodePlusComment): 
+            if (g.bInCommentRegion or g.bForceComment): 
                 g.nComment += 1
-            # The end of a block comment region, if not on the 
-            #  same line as the beginning of the block.
-            if (g.bCommentBlockEnd 
-                and not g.bCommentBlockBegin
-                and not g.bCodePlusComment): 
-                g.nComment += 1
+
             # Count short lines separately from longer code lines. 
             if g.bShort:
                 g.nShort += 1
-            # If not special, then code.  (running tally)
+
+            # If not special, then code.  (keep running tally)
             g.nCode = g.nLines - g.nBlank - g.nComment - g.nShort
             NTRC.ntrace(3,"proc afterline lines|%s| code|%s| comment|%s| "
-                "blank|%s| short|%s|" 
-                % (g.nLines, g.nCode, g.nComment, g.nBlank, g.nShort))
+                "blank|%s| short|%s| inblock|%s|" 
+                % (g.nLines, g.nCode, g.nComment, g.nBlank, g.nShort, 
+                g.bInCommentRegion))
+
+            # Advance the block comment state.  
+            g.bInCommentRegion = g.bInCommentRegionNext
 
 
 #===========================================================
@@ -361,19 +450,39 @@ def fnProcessLine(mysLine,mysFiletype):
     '''
     g.fnvResetFlags()
     g.bBlank = g.cLang.bIsBlank(mysLine)
-    g.bCommentOnly = g.cLang.bIsCommentOnly(mysLine)
+    g.bHashCommentOnly = g.cLang.bIsHashCommentOnly(mysLine)
     g.bCodePlusComment = g.cLang.bIsCodePlusComment(mysLine)
     g.bCommentBlockBegin = g.cLang.bIsCommentBlockBegin(mysLine)
-    if g.bCommentBlockBegin:
-        g.bInCommentRegion = 1
     g.bCommentBlockEnd = g.cLang.bIsCommentBlockEnd(mysLine)
-    if g.bCommentBlockEnd:
-        g.bInCommentRegion = 0
-    if g.bCommentBlockBegin and g.bCommentBlockEnd and not g.bCodePlusComment:
-        g.bCommentOnly = 1
+    g.bCommentBlockAmbiguous = g.cLang.bIsCommentBlockBeginOrEnd(mysLine)
     g.bShort = g.cLang.bIsShort(mysLine)
-    NTRC.ntrace(3,"blockcomm inregion|%s| commentonly|%s| codeplus|%s|" 
-        % (g.bInCommentRegion, g.bCommentOnly, g.bCodePlusComment))
+    # TEMP
+    g.bForceComment = 0
+    # END TEMP
+    NTRC.ntrace(3, "proc linetype1 blank|%s| commonly|%s| codeplus|%s| "
+        "blkbegin|%s| blkend|%s| blkambig|%s| forcecomm|%s|" 
+        % (g.bBlank, g.bHashCommentOnly, g.bCodePlusComment, 
+        g.bCommentBlockBegin, g.bCommentBlockEnd, g.bCommentBlockAmbiguous, 
+        g.bForceComment))
+
+    g.bInCommentRegionNext = g.bInCommentRegion
+    if g.bCommentBlockBegin:
+        g.bInCommentRegionNext = 1
+        if not g.bCommentBlockEnd:
+            g.bForceComment = 1
+    if g.bCommentBlockEnd:      # May be code before begin but looks like end.
+        g.bInCommentRegionNext ^= 1
+    if g.bCommentBlockAmbiguous:
+        g.bInCommentRegionNext ^= 1 # Toggle (xor) from in to out or v-v.  
+        g.bForceComment = 1     # Ambiguous but a comment at begin or end.
+    if g.bCommentBlockBegin and g.bCommentBlockEnd and not g.bCodePlusComment:
+        g.bHashCommentOnly = 1
+
+    NTRC.ntrace(3,"proc linetype2 regionprev|%s| regionnext|%s| "
+        "commonly|%s| forcecomment|%s| ambig|%s|" 
+        % (g.bInCommentRegion, g.bInCommentRegionNext, g.bHashCommentOnly, 
+        g.bForceComment, g.bCommentBlockAmbiguous))
+    return mysLine.strip()
 
 # t f 
 # Reduce match objects or None to one and zero, for brevity.  
@@ -477,6 +586,11 @@ if __name__ == "__main__":
 #                an if-elif statement that went on for three pages.
 #                And you wouldn't believe the spaghetti swamp 
 #                that the original Perl code was.  
+# 20170609  RBL Fix all the regexes and logic for block comments.  
+#                Boy, do I hate that style of block comment (introducer 
+#                and terminator the same string, and nesting, shudder).  
+#                Still a mess and still does not cover all cases, e.g.,
+#                nested ''' within """ and v-v.
 # 
 # 
 
