@@ -4,19 +4,23 @@
 #  which in turn came from old old really old Perl version years before that. 
 
 ''' 
-Count lines of code and other stuff in a file.  
-Counts
-- total lines
-- comment lines:    single lines or blocks, for languages that have blocks
-- blank lines
-- short lines:      like lone braces on code blocks, for C, Java, PHP, et al.
-- code lines:       whatever isn't blank, comment, or short
+Count lines of code and other stuff in a file.  Try to distinguish
+ code lines from comment lines and blank lines.  
+ How dense is the explanatory commenting in your project code base?
 
 Emits a single line of output, tab-separated: name, type, and counters: 
-filename    filetype    total   code    comment blank   short
+    filename    filetype    total   code    comment blank   short
+Filename is the qualified filespec that one gets from ls.  
 The filetype is a group name based on the file extension.  
 
-Impending change of philosophy: do the normal cases, screw the edge cases.  
+Counts
+- total lines
+- code lines:       whatever isn't blank, comment, or short
+- comment lines:    single lines or blocks, for languages that have blocks
+- blank lines:      maybe white space but no content
+- short lines:      like lone braces on code blocks, for C, Java, PHP, et al.
+
+Philosophy: do the normal cases, screw the weird edge cases.  
 E.g., anything that isn't blank or pure comment is code.
 
 New version: uses polymorphic classes to examine language lines.
@@ -38,7 +42,13 @@ class CAnalyzeLanguageLines(object):
     Subclass this and implement whatever methods are necessary for that
      particular language.  E.g., if a language does not have block
      comments, then don't bother to implement anything to look for them.
-     Every prototype function returns False (with pass) if not implemented.
+     
+    For each line of input, these functions are called to answer simple
+     yes/no questions, e.g., Does this line contain xyz?  The analysis of
+     what category a line belongs in is done later in a more or less
+     language independent fashion.
+
+    Every prototype function returns None (with pass) if not implemented.
      NOTE: Every subclass must implement HashCommentOnly and CodePlusComment.
      
     The functions must be stateless, because they may be optimized
@@ -74,6 +84,7 @@ class CAnalyzeLanguageLines(object):
 
     def bIsCommentBlockBeginOrEnd(self, mysLine):
         ''' Ambiguous introducer/terminator for comment block? '''
+        ''' This additional function is necessary for Python. '''
         pass
 
     def bIsShort(self,mysLine):
@@ -90,11 +101,11 @@ class CG(object):
 
     bShort = 0
     bBlank = 0
-    bHashCommentOnly = 0    # Comment on this line.  
-    bCommentBlockBegin = 0  # Beginning of a block comment.
-    bCommentBlockEnd = 0    # End of block comment.
+    bHashCommentOnly = 0        # Comment on this line.  
+    bCommentBlockBegin = 0      # Beginning of a block comment.
+    bCommentBlockEnd = 0        # End of block comment.
     bCommentBlockAmbiguous = 0  # Python only: maybe begin or end.
-    bForceComment = 0       # Force this line to be considered a comment.
+    bForceComment = 0           # Force this line to be considered a comment.
     
     bInCommentRegion = 0        # Inside a block comment.
     bInCommentRegionNext = 0    # Maybe transition to anew state.  
@@ -107,12 +118,11 @@ class CG(object):
     nCode = 0
 
     @ntrace
+    # Reset all flags at the beginning of each line.
     def fnvResetFlags(self):
         bBlank = bShort = 0
         bHashCommentOnly = 0
-        bCommentBlockBegin = 0
-        bCommentBlockEnd = 0
-        bCommentBlockAmbiguous = 0
+        bCommentBlockBegin = bCommentBlockEnd = bCommentBlockAmbiguous = 0
         bForceComment = 0
 
     # Return counters, some or all.  
@@ -125,7 +135,7 @@ class CG(object):
 
 
 #===========================================================
-# Subclasses to parse specific language groups.
+# S u b c l a s s e s   to parse specific language groups.
 
 #===========================================================
 # C P Y T H O N 
@@ -149,12 +159,12 @@ class CPython(CAnalyzeLanguageLines):
     Nested block comments, using the two types of quotes, are
      currently mis-handled here.  Tough.  Rare case.
      If you want to fix it so that comment blocks can nest, 
-     knock yourself out.  
+     knock yourself out.  You have been warned.  
     The code here fudges the possibility of code plus what looks like 
-     a block comment on the same line.  
-     If there is any text outside the 
-     comment delimiter, then the line is code; otherwise it is 
-     inside a comment.  Maybe you could convince me to fix this.  
+     a block comment on the same line.  Sorta.  
+     If there is any text outside the comment delimiter, 
+     then the line is code; otherwise it is inside a comment.  
+     Maybe you could convince me to fix this.  
 
     And then there are the abominable -- but, sadly, useful -- 
         if False:<opening triplequote>
@@ -166,14 +176,15 @@ class CPython(CAnalyzeLanguageLines):
         code to be commented out
         <closing triplequote> and False
      which should counta as comment, comment, code.
-    What a crock.
+    What a crock.  And oh, by the way, there might be block
+     comments of the other flavor inside the commented-out block.
 
     Here's what it *should* conclude:
   
-    whitespace only                         blank if not in comment region
-    non-whitespace only                     code
-    whitespace hash anything                single-line comment
-    non-whitespace hash anything            code
+    whitespace only                         blank (if not in comment region)
+    non-whitespace only                     code (if not in comment region)
+    whitespace hash anything                single-line comment (if not...)
+    non-whitespace hash anything            code (if not...)
     whitespace triplequote whitespace       begin or end (xor) comment region
     whitespace triplequote non-whitespace   comment & begin comment region
     non-whitespace triplequote whitespace   comment & end comment region if in,
@@ -183,7 +194,9 @@ class CPython(CAnalyzeLanguageLines):
     whitespace triplequote anything triplequote whitespace
                                             single-line comment
     
-    Now let's see if I can make this stupid code do that.  
+    Now let's see if I can make this stupid code do approximately that.  
+     Most of the burden falls on the analysis phase to make counting
+     work for both C-style and Python-style block comments.
     '''
     @ntrace
     def bIsApost(self, mysLine):
@@ -333,7 +346,7 @@ class CIni(CAnalyzeLanguageLines):
 
     @ntrace
     def bIsHashCommentOnly(self, mysLine):
-        return(tf(re.match("^\s*(#|!|;|%|\/\/).*$",mysLine)))
+        return(tf(re.match("^\s*(#|!|;|%|\/\/).*$", mysLine)))
 
     @ntrace
     def bIsCodePlusComment(self, mysLine):
@@ -341,11 +354,11 @@ class CIni(CAnalyzeLanguageLines):
 
     @ntrace
     def bIsCommentBlockBegin(self, mysLine):
-        return(tf(re.match("^\s*\/\*.*$",mysLine)))
+        return(tf(re.match("^\s*\/\*.*$", mysLine)))
 
     @ntrace
     def bIsCommentBlockEnd(self, mysLine):
-        return(tf(re.match("^.*\*\/\s*$",mysLine)))
+        return(tf(re.match("^.*\*\/\s*$", mysLine)))
 
 
 #===========================================================
@@ -368,7 +381,7 @@ class CText(CAnalyzeLanguageLines):
 #===========================================================
 # f n P r o c e s s F i l e 
 @ntrace
-def fnProcessFile(mysFilename,mysFiletype):
+def fnProcessFile(mysFilename, mysFiletype):
     '''
     Process the file line by line.
 
@@ -380,7 +393,7 @@ def fnProcessFile(mysFilename,mysFiletype):
     '''
     with open(mysFilename, "r") as fhInput:
         for sLine in fhInput:
-            fnProcessLine(sLine,mysFiletype)
+            fnProcessLine(sLine, mysFiletype)
 
             # Determine type of line and increment count.
             g.nLines += 1
@@ -391,9 +404,7 @@ def fnProcessFile(mysFilename,mysFiletype):
                 g.nBlank += 1
 
             '''
-            What we want here is
-
-            block comments have to work for these cases:
+            Block comments have to work for these cases:
 
                 in C and friends:
             code? /*
@@ -409,9 +420,9 @@ def fnProcessFile(mysFilename,mysFiletype):
             """ code? 
             code? """ stuff """
             """ stuff """ code? 
+                for both triple-apostrophes and triple-quotes.
 
-            This is not simple.
-
+            Non-trivial.
             '''
 
             # Hash comment or 
@@ -427,7 +438,7 @@ def fnProcessFile(mysFilename,mysFiletype):
             if g.bShort:
                 g.nShort += 1
 
-            # If not special, then code.  (keep running tally)
+            # If it's not special, then it's code.  (keep running tally)
             g.nCode = g.nLines - g.nBlank - g.nComment - g.nShort
             NTRC.ntrace(3,"proc afterline lines|%s| code|%s| comment|%s| "
                 "blank|%s| short|%s| inblock|%s|" 
@@ -441,7 +452,7 @@ def fnProcessFile(mysFilename,mysFiletype):
 #===========================================================
 # f n P r o c e s s L i n e 
 @ntrace
-def fnProcessLine(mysLine,mysFiletype):
+def fnProcessLine(mysLine, mysFiletype):
     '''
     Process one line of the file.
     
@@ -456,7 +467,8 @@ def fnProcessLine(mysLine,mysFiletype):
     g.bCommentBlockEnd = g.cLang.bIsCommentBlockEnd(mysLine)
     g.bCommentBlockAmbiguous = g.cLang.bIsCommentBlockBeginOrEnd(mysLine)
     g.bShort = g.cLang.bIsShort(mysLine)
-    # TEMP
+    # TEMP this might seem superfluous. It is the Roy Lomicka memorial fix
+    #  for a possible bug I don't care to track down.
     g.bForceComment = 0
     # END TEMP
     NTRC.ntrace(3, "proc linetype1 blank|%s| commonly|%s| codeplus|%s| "
@@ -466,15 +478,19 @@ def fnProcessLine(mysLine,mysFiletype):
         g.bForceComment))
 
     g.bInCommentRegionNext = g.bInCommentRegion
+
     if g.bCommentBlockBegin:
         g.bInCommentRegionNext = 1
         if not g.bCommentBlockEnd:
             g.bForceComment = 1
+
     if g.bCommentBlockEnd:      # May be code before begin but looks like end.
         g.bInCommentRegionNext ^= 1
+
     if g.bCommentBlockAmbiguous:
         g.bInCommentRegionNext ^= 1 # Toggle (xor) from in to out or v-v.  
-        g.bForceComment = 1     # Ambiguous but a comment at begin or end.
+        g.bForceComment = 1         # Ambiguous but a comment at begin or end.
+
     if g.bCommentBlockBegin and g.bCommentBlockEnd and not g.bCodePlusComment:
         g.bHashCommentOnly = 1
 
@@ -486,6 +502,9 @@ def fnProcessLine(mysLine,mysFiletype):
 
 # t f 
 # Reduce match objects or None to one and zero, for brevity.  
+#  Pardon me for using 0 and 1 for False and True, but I want 
+#  to be able to do, e.g., xor without having to remember 
+#  to use bool().
 def tf(something):
     if something:
         return 1
@@ -495,29 +514,30 @@ def tf(something):
 #===========================================================
 # M A I N 
 @ntrace
-def main(mysFilename,mysType):
+def main(mysFilename, mysType):
     '''
     Main line: choose proper processor for the file type, 
      process the file, print results.
     '''
 
     # Mucho stupid factory to get the right class to analyze this file.
-    if (re.match("^(c|cpp|h|hpp|js|java|scala)$",mysType,re.I) ):
+    if (re.match("^(c|cpp|h|hpp|js|java|scala)$", mysType, re.I) ):
         g.cLang = CCCppJsJava()
         g.sProcessedAs = 'cpp/js/java'
-    elif (re.match("^(pl|awk|r|sh|ksh|csv|mak|sed|properties)$",mysType,re.I)):
+    elif (re.match("^(pl|awk|r|sh|ksh|csv|mak|sed|properties)$", 
+            mysType, re.I)):
         g.cLang = CPerlAwkShR()
         g.sProcessedAs = 'sh/perl/r'
-    elif (re.match("^(py|pm)$",mysType,re.I)):
+    elif (re.match("^(py|pm)$", mysType, re.I)):
         g.cLang = CPython()
         g.sProcessedAs = 'python'
-    elif (re.match("^(xsl|xml|htm|html|xhtml|tpl|j2)$",mysType,re.I)):
+    elif (re.match("^(xsl|xml|htm|html|xhtml|tpl|j2)$", mysType, re.I)):
         g.cLang = CXmlHtml()
         g.sProcessedAs = 'xml/html'
-    elif (re.match("^(bat|cmd)$",mysType,re.I)):
+    elif (re.match("^(bat|cmd)$", mysType, re.I)):
         g.cLang = CBatCmd()
         g.sProcessedAs = 'bat'
-    elif (re.match("^(ini)$",mysType,re.I)):
+    elif (re.match("^(ini)$", mysType, re.I)):
         g.cLang = CIni()
         g.sProcessedAs = 'ini'
     else:
@@ -526,7 +546,7 @@ def main(mysFilename,mysType):
 
     NTRC.ntrace(3,"proc main assigned filetype|%s| class|%s|" 
         % (mysType, g.cLang))
-    fnProcessFile(sFilename,sFileext)   # Do all this crap to the file.
+    fnProcessFile(sFilename, sFileext)   # Do all this crap to the file.
     NTRC.ntrace(3,"proc main afterfile lines|%s| code|%s| "
         "blank|%s| short|%s| comment|%s|" 
         % (g.getAll()))
@@ -535,11 +555,11 @@ def main(mysFilename,mysType):
     # everything that we saw that absolutely is not a line of code.
     # Blanks and comment-only lines are not code for sure.  
     # Short lines are arguable, so we report them separately.  
-    (total,zerocode,blank,short,comment) = g.getAll()
+    (total, zerocode, blank, short, comment) = g.getAll()
     g.nCode = total - blank - short - comment   # Code is what's left over.
     # Finally, the single line of output for this file.  
     print "%s\t%s\t%d\t%d\t%d\t%d\t%d" % \
-    (sFilename,g.sProcessedAs,total,g.nCode,comment,blank,short)
+    (sFilename, g.sProcessedAs, total, g.nCode, comment, blank, short)
 
     return 0
 
@@ -567,7 +587,7 @@ if __name__ == "__main__":
             (_, sFileextplusdot) = os.path.splitext(sFilename)
             sFileext = sFileextplusdot.lstrip('.')
             NTRC.tracef(3,"MAIN","proc fname|%s| ext|%s|" 
-                % (sFilename,sFileext))
+                % (sFilename, sFileext))
 
             # Instantiate all the global data, flags and counters.
             g = CG()
@@ -591,6 +611,9 @@ if __name__ == "__main__":
 #                and terminator the same string, and nesting, shudder).  
 #                Still a mess and still does not cover all cases, e.g.,
 #                nested ''' within """ and v-v.
+# 20170610  RBL All cases appear to work, with limited testing.
+#               Improve the comments in here.  It is almost reasonably 
+#                PEP8-ified, if one ignores the egregious Hungarian naming.  
 # 
 # 
 

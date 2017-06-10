@@ -13,23 +13,18 @@ print("""Looks like a block comment but isn't.""")
     inside second block comment
 """
 
-"""
-# Nested comment, used to comment out a region of code that happened 
-#  to contain a block comment.  
-# Oops on this case, which is mis-handled currently.  To be fixed someday, 
-#  maybe possibly perhaps, but a rare case that I won't lose much sleep over.  
-print("This begins a code region that is commented out.")
+'''
+block comment containing blank line
 
+# and line that appears to be single-line comment
+print("foo")    # and line that appears to be code+comment
+# and line that appears to be just code
+print("bar")
 '''
-Block comment inside the a code region that now happens to be in a comment.
-'''
-print("Here endeth a code region that is commented out.")
-print("This should count as comment, since it is commented out, but...")
-print(" it probably counts as code.  Ask yourself, 'Do I care?'")
-"""
 
 if 0: '''
-print("Code commented out the funny way.")
+print("Block of code commented out the funny way.")
+# Still have to be careful about triple quotes inside the block.
 '''
 
 #END
