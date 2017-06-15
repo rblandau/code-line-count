@@ -1,0 +1,7 @@
+file	type	total	code	comment	blank	short
+./NewCodeLineCounts.py	python	620	266	256	98	0
+./NewTraceFac.py	python	497	175	296	26	0
+./__init__.py	python	0	0	0	0	0
+./WeeklyCodeLineCounts_dir.sh	sh/perl/r	85	31	46	8	0
+./CodeSupportedLanguages.txt	text	1	1	0	0	0
+./linecount_of_this_dir.txt	text	6	6	0	0	0
