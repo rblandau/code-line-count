@@ -33,7 +33,7 @@ if [ -r "$sSupportedLanguageFile" ]
 then
     sSupportedLanguages=`cat $sSupportedLanguageFile`
 else
-    sSupportedLanguages="py py2 py3 pm js gs r c cpp h hpp java xml xsl html xhtml xml xsl tpl j2 bat cmd sh csv mak pl awk sed ini txt md rst"
+    sSupportedLanguages="py py2 py3 pm js gs r c cpp h hpp java xml xsl html xhtml xml xsl tpl j2 bat cmd sh csv mak pl awk sed ini yaml txt md rst"
 fi
 
 # Use latest version of default program, unless the user has specified
@@ -53,8 +53,8 @@ for sSrcType in $sSupportedLanguages
 do 
     find "$1" -name "*.$sSrcType" -print | while read sFilename 
             do
-                #echo python `dirname $0`/$latestprogram "${sFilename}"
-                python `dirname $0`/$LINECOUNTERPROGRAM "${sFilename}"
+                #echo python3 `dirname $0`/$latestprogram "${sFilename}"
+                python3 `dirname $0`/$LINECOUNTERPROGRAM "${sFilename}"
             done
 done 
 
@@ -80,6 +80,8 @@ exit 0
 # 20170530  RBL Allow env var LINECOUNTERPROGRAM to override
 #                default counter program, to make it easy to
 #                test old against new for regression.  
+# 20200126  RBL Add to supported language list.
+#               Use python3.
 # 
 # 
 #END

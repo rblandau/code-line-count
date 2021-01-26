@@ -26,7 +26,7 @@ E.g., anything that isn't blank or pure comment is code.
 New version: uses polymorphic classes to examine language lines.
 '''
 
-from NewTraceFac import NTRC,ntrace,ntracef
+from NewTrace import NTRC,ntrace,ntracef
 import re
 import sys
 import os
@@ -88,8 +88,8 @@ class CAnalyzeLanguageLines(object):
         pass
 
     def bIsShort(self,mysLine):
-        ''' Is line very short, e.g., a single brace? '''
-        pass
+        ''' Is line very short, e.g., a single brace or paren? '''
+        return(tf(re.match("^\s*[\(\)\{\}\[\]]\s*$", mysLine)))
 
 
 #===========================================================
@@ -127,8 +127,11 @@ class CG(object):
 
     # Return counters, some or all.  
     def getAll(self):
-        return (self.nLines, self.nCode, self.nBlank, 
-            self.nShort, self.nComment)
+        return (
+                self.nLines, self.nCode, self.nBlank, 
+                self.nShort, self.nComment
+                )
+    # Should probably change this to a named tuple someday.
 
     def getLines(self):
         return self.nLines
@@ -159,7 +162,7 @@ class CPython(CAnalyzeLanguageLines):
     Nested block comments, using the two types of quotes, are
      currently mis-handled here.  Tough.  Rare case.
      If you want to fix it so that comment blocks can nest, 
-     knock yourself out.  You have been warned.  
+     knock yourself out.  I don't care.  You have been warned.  
     The code here fudges the possibility of code plus what looks like 
      a block comment on the same line.  Sorta.  
      If there is any text outside the comment delimiter, 
@@ -175,8 +178,8 @@ class CPython(CAnalyzeLanguageLines):
         <opening triplequote>
         code to be commented out
         <closing triplequote> and False
-     which should counta as comment, comment, code.
-    What a crock.  And oh, by the way, there might be block
+     which should count as comment, comment, code.
+    What a crock!  And oh, by the way, there might be block
      comments of the other flavor inside the commented-out block.
 
     Here's what it *should* conclude:
@@ -244,7 +247,7 @@ class CPython(CAnalyzeLanguageLines):
 
 
 #===========================================================
-# P E R L   A W K   S H   R   M A K   S E D   P R O P E R T I E S 
+# P E R L   A W K   S H   R   M A K   S E D   Y A M L   P R O P E R T I E S 
 class CPerlAwkShR(CAnalyzeLanguageLines):
     '''
     Languages that have only single line comments that start with #
@@ -477,6 +480,7 @@ def fnProcessLine(mysLine, mysFiletype):
         g.bCommentBlockBegin, g.bCommentBlockEnd, g.bCommentBlockAmbiguous, 
         g.bForceComment))
 
+    # Now try to sort out the block comment mess.
     g.bInCommentRegionNext = g.bInCommentRegion
 
     if g.bCommentBlockBegin:
@@ -521,14 +525,18 @@ def main(mysFilename, mysType):
     '''
 
     # Mucho stupid factory to get the right class to analyze this file.
+    # The logic of this mess should be externalized into the 
+    #  supported-languages file, probably as a json dictionary.
+    #  It is error-prone to updating while it is here.  
+    
     if (re.match("^(c|cpp|h|hpp|js|java|scala)$", mysType, re.I) ):
         g.cLang = CCCppJsJava()
         g.sProcessedAs = 'cpp/js/java'
-    elif (re.match("^(pl|awk|r|sh|ksh|csv|mak|sed|properties)$", 
+    elif (re.match("^(pl|awk|r|sh|bash|ksh|csv|mak|sed|yaml|properties)$", 
             mysType, re.I)):
         g.cLang = CPerlAwkShR()
         g.sProcessedAs = 'sh/perl/r'
-    elif (re.match("^(py|pm)$", mysType, re.I)):
+    elif (re.match("^(py|py2|py3|pm)$", mysType, re.I)):
         g.cLang = CPython()
         g.sProcessedAs = 'python'
     elif (re.match("^(xsl|xml|htm|html|xhtml|tpl|j2)$", mysType, re.I)):
@@ -558,9 +566,10 @@ def main(mysFilename, mysType):
     (total, zerocode, blank, short, comment) = g.getAll()
     g.nCode = total - blank - short - comment   # Code is what's left over.
     # Finally, the single line of output for this file.  
-    print "%s\t%s\t%d\t%d\t%d\t%d\t%d" % \
-    (sFilename, g.sProcessedAs, total, g.nCode, comment, blank, short)
-
+    print(
+        "%s\t%s\t%d\t%d\t%d\t%d\t%d" 
+        % (sFilename, g.sProcessedAs, total, g.nCode, comment, blank, short)
+        )
     return 0
 
 
@@ -573,9 +582,12 @@ if __name__ == "__main__":
     '''
 
     if len(sys.argv) <= 1:
-        print "Usage: python {}  <input-filespec>".format(sys.argv[0])
-        print "       Line out = filename, filetype, total, code, comment, blank, short"
-        print "       Output one line to stdout."
+        print( 
+            "Usage: python {}  <input-filespec>".format(sys.argv[0]))
+        print(
+            "       Line out = filename, filetype, total, code, comment, blank, short\n"
+            "       Output one line to stdout."
+            )
         exit(1)
 
     sFilename = sys.argv[1]
@@ -612,8 +624,12 @@ if __name__ == "__main__":
 #                Still a mess and still does not cover all cases, e.g.,
 #                nested ''' within """ and v-v.
 # 20170610  RBL All cases appear to work, with limited testing.
-#               Improve the comments in here.  It is almost reasonably 
+#               Improve the comments in here.  It is almost reasonably sorta 
 #                PEP8-ified, if one ignores the egregious Hungarian naming.  
+# 20200126  RBL Update for python3.
+#               Fix detection of short lines: single paren, bracket, 
+#                or brace in line.
+#               Add a couple comments about needed improvements. 
 # 
 # 
 
