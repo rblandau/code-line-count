@@ -1,1 +1,1 @@
-py pl sh cpp hpp c h java ini txt r md csv ins ins3 tpl j2 html 
+py py2 py3 pm pl sh cpp hpp c h java js gs awk sed ini txt bat cmd r md rst csv mak ins ins3 tpl j2 html xhtml xml xsl 

@@ -16,7 +16,7 @@ To invoke:
 ```
 
 Returns a single line of stats to stdout containing the following fields, 
-tab-separated.  The output may be redirected ot teed to an output file.  
+tab-separated.  The output may be redirected or teed to an output file.  
 
 - filespec: the spec given to the program.
 
